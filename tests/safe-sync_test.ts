@@ -29,6 +29,30 @@ Clarinet.test({
 });
 
 Clarinet.test({
+  name: "Ensure can update existing asset",
+  async fn(chain: Chain, accounts: Map<string, Account>) {
+    const deployer = accounts.get("deployer")!;
+    
+    let block = chain.mineBlock([
+      Tx.contractCall(
+        "safe-sync",
+        "store-asset",
+        [types.ascii("test-hash-123")],
+        deployer.address
+      ),
+      Tx.contractCall(
+        "safe-sync",
+        "update-asset",
+        [types.uint(0), types.ascii("new-hash-456")],
+        deployer.address
+      )
+    ]);
+    
+    assertEquals(block.receipts[1].result, "(ok u2)");
+  },
+});
+
+Clarinet.test({
   name: "Ensure only owner can approve addresses",
   async fn(chain: Chain, accounts: Map<string, Account>) {
     const deployer = accounts.get("deployer")!;
