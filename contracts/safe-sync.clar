@@ -6,6 +6,7 @@
 (define-constant err-asset-exists (err u101))
 (define-constant err-asset-not-found (err u102))
 (define-constant err-invalid-address (err u103))
+(define-constant err-invalid-version (err u104))
 
 ;; Data structures
 (define-map assets 
@@ -14,7 +15,8 @@
     owner: principal,
     hash: (string-ascii 64),
     version: uint,
-    timestamp: uint
+    timestamp: uint,
+    latest-version: uint
   }
 )
 
@@ -52,11 +54,33 @@
         owner: tx-sender,
         hash: hash,
         version: u1,
-        timestamp: block-height
+        timestamp: block-height,
+        latest-version: u1
       }
     )
     (var-set asset-counter (+ asset-id u1))
     (ok asset-id)
+  )
+)
+
+(define-public (update-asset (asset-id uint) (new-hash (string-ascii 64)))
+  (let
+    (
+      (asset (unwrap! (map-get? assets { asset-id: asset-id }) (err err-asset-not-found)))
+      (new-version (+ (get latest-version asset) u1))
+    )
+    (asserts! (is-eq tx-sender (get owner asset)) (err err-not-authorized))
+    (map-set assets
+      { asset-id: asset-id }
+      {
+        owner: (get owner asset),
+        hash: new-hash,
+        version: new-version,
+        timestamp: block-height,
+        latest-version: new-version
+      }
+    )
+    (ok new-version)
   )
 )
 
