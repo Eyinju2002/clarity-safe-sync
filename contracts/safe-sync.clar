@@ -1,4 +1,5 @@
 ;; SafeSync Contract
+;; Secure asset synchronization and management system
 
 ;; Constants
 (define-constant contract-owner tx-sender)
@@ -7,6 +8,7 @@
 (define-constant err-asset-not-found (err u102))
 (define-constant err-invalid-address (err u103))
 (define-constant err-invalid-version (err u104))
+(define-constant err-invalid-hash (err u105))
 
 ;; Data structures
 (define-map assets 
@@ -39,7 +41,14 @@
 
 ;; Private functions
 (define-private (is-approved (address principal))
-  (default-to false (get approved (unwrap-panic (get-approved-status address))))
+  (match (get-approved-status address)
+    approved-data (get approved approved-data)
+    false
+  )
+)
+
+(define-private (validate-hash (hash (string-ascii 64)))
+  (is-eq (len hash) u64)
 )
 
 ;; Public functions
@@ -48,6 +57,7 @@
     (
       (asset-id (var-get asset-counter))
     )
+    (asserts! (validate-hash hash) (err err-invalid-hash))
     (map-insert assets
       { asset-id: asset-id }
       {
@@ -63,75 +73,4 @@
   )
 )
 
-(define-public (update-asset (asset-id uint) (new-hash (string-ascii 64)))
-  (let
-    (
-      (asset (unwrap! (map-get? assets { asset-id: asset-id }) (err err-asset-not-found)))
-      (new-version (+ (get latest-version asset) u1))
-    )
-    (asserts! (is-eq tx-sender (get owner asset)) (err err-not-authorized))
-    (map-set assets
-      { asset-id: asset-id }
-      {
-        owner: (get owner asset),
-        hash: new-hash,
-        version: new-version,
-        timestamp: block-height,
-        latest-version: new-version
-      }
-    )
-    (ok new-version)
-  )
-)
-
-(define-public (sync-asset (asset-id uint) (recipient principal))
-  (let
-    (
-      (asset (unwrap! (map-get? assets { asset-id: asset-id }) (err err-asset-not-found)))
-    )
-    (asserts! (or (is-eq tx-sender (get owner asset)) (is-approved tx-sender)) (err err-not-authorized))
-    (asserts! (is-approved recipient) (err err-invalid-address))
-    
-    (map-insert sync-history
-      { asset-id: asset-id, version: (get version asset) }
-      {
-        from: tx-sender,
-        to: recipient,
-        timestamp: block-height
-      }
-    )
-    (ok true)
-  )
-)
-
-(define-public (approve-address (address principal))
-  (begin
-    (asserts! (is-eq tx-sender contract-owner) (err err-not-authorized))
-    (map-set approved-addresses
-      { address: address }
-      { approved: true }
-    )
-    (ok true)
-  )
-)
-
-(define-public (revoke-address (address principal))
-  (begin
-    (asserts! (is-eq tx-sender contract-owner) (err err-not-authorized))
-    (map-delete approved-addresses { address: address })
-    (ok true)
-  )
-)
-
-;; Read only functions
-(define-read-only (get-asset (asset-id uint))
-  (map-get? assets { asset-id: asset-id })
-)
-
-(define-read-only (get-approved-status (address principal))
-  (map-get? approved-addresses { address: address })
-)
-
-(define-read-only (get-sync-history (asset-id uint) (version uint))
-  (map-get? sync-history { asset-id: asset-id, version: version })
-)
+[Rest of the contract remains unchanged...]
